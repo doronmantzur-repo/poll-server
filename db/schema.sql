@@ -25,5 +25,5 @@ CREATE TABLE IF NOT EXISTS poll_answers (
     user_id INTEGER NOT NULL REFERENCES username(id),
     answer TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    UNIQUE (poll_id, user_id, answer)
+    UNIQUE (poll_id, user_id)
 );
