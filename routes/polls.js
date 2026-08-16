@@ -144,6 +144,87 @@ router.patch("/:id/publish", async (req, res) => {
   }
 });
 
+router.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user_id, question, answers } = req.body;
+
+  if (!user_id || !question) {
+    return res.status(400).json({ error: "user_id and question are required" });
+  }
+
+  const trimmedAnswers = Array.isArray(answers)
+    ? answers.map((a) => (typeof a === "string" ? a.trim() : "")).filter((a) => a.length > 0)
+    : [];
+
+  if (trimmedAnswers.length < MIN_ANSWERS || trimmedAnswers.length > MAX_ANSWERS) {
+    return res.status(400).json({
+      error: `answers must contain between ${MIN_ANSWERS} and ${MAX_ANSWERS} non-empty options`,
+    });
+  }
+
+  const answerColumns = Array.from({ length: MAX_ANSWERS }, (_, i) => trimmedAnswers[i] ?? null);
+
+  try {
+    const pollResult = await pool.query("SELECT * FROM polls WHERE id = $1", [id]);
+    const poll = pollResult.rows[0];
+
+    if (!poll) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    if (poll.user_id !== Number(user_id)) {
+      return res.status(403).json({ error: "You do not own this poll" });
+    }
+    if (poll.is_public) {
+      return res.status(400).json({ error: "Cannot edit a poll that is already public" });
+    }
+
+    const result = await pool.query(
+      `UPDATE polls
+       SET question = $1, answer_1 = $2, answer_2 = $3, answer_3 = $4, answer_4 = $5,
+           answer_5 = $6, answer_6 = $7, answer_7 = $8, answer_8 = $9
+       WHERE id = $10
+       RETURNING *`,
+      [question, ...answerColumns, id]
+    );
+
+    res.status(200).json({ poll: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+
+  try {
+    const pollResult = await pool.query("SELECT * FROM polls WHERE id = $1", [id]);
+    const poll = pollResult.rows[0];
+
+    if (!poll) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    if (poll.user_id !== Number(user_id)) {
+      return res.status(403).json({ error: "You do not own this poll" });
+    }
+    if (poll.is_public) {
+      return res.status(400).json({ error: "Cannot delete a poll that is already public" });
+    }
+
+    await pool.query("DELETE FROM polls WHERE id = $1", [id]);
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/", async (req, res) => {
   const { question, answers, is_public, user_id } = req.body;
 
