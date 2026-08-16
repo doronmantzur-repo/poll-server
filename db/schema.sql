@@ -18,3 +18,12 @@ CREATE TABLE IF NOT EXISTS polls (
     answer_8 TEXT,
     is_public BOOLEAN NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS poll_answers (
+    id SERIAL PRIMARY KEY,
+    poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES username(id),
+    answer TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (poll_id, user_id, answer)
+);

@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/auth");
 const pollsRoutes = require("./routes/polls");
+const pollAnswersRoutes = require("./routes/pollAnswers");
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/polls", pollsRoutes);
+app.use("/api/poll-answers", pollAnswersRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

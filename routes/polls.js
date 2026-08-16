@@ -20,6 +20,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/browse", async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT p.*,
+              COALESCE(
+                array_agg(pa.answer) FILTER (WHERE pa.answer IS NOT NULL),
+                '{}'
+              ) AS my_answers
+       FROM polls p
+       LEFT JOIN poll_answers pa ON pa.poll_id = p.id AND pa.user_id = $1
+       WHERE p.user_id = $1 OR p.is_public = true
+       GROUP BY p.id
+       ORDER BY p.id DESC`,
+      [user_id]
+    );
+
+    res.status(200).json({ polls: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/", async (req, res) => {
   const { question, answers, is_public, user_id } = req.body;
 
