@@ -110,6 +110,40 @@ router.get("/results", async (req, res) => {
   }
 });
 
+router.patch("/:id/publish", async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+
+  try {
+    const pollResult = await pool.query("SELECT * FROM polls WHERE id = $1", [id]);
+    const poll = pollResult.rows[0];
+
+    if (!poll) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    if (poll.user_id !== Number(user_id)) {
+      return res.status(403).json({ error: "You do not own this poll" });
+    }
+    if (poll.is_public) {
+      return res.status(200).json({ poll });
+    }
+
+    const result = await pool.query(
+      "UPDATE polls SET is_public = true WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    res.status(200).json({ poll: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/", async (req, res) => {
   const { question, answers, is_public, user_id } = req.body;
 
