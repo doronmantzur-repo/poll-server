@@ -110,6 +110,40 @@ router.get("/results", async (req, res) => {
   }
 });
 
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT p.*,
+              COALESCE(
+                array_agg(pa.answer) FILTER (WHERE pa.answer IS NOT NULL),
+                '{}'
+              ) AS my_answers
+       FROM polls p
+       LEFT JOIN poll_answers pa ON pa.poll_id = p.id AND pa.user_id = $2
+       WHERE p.id = $1
+       GROUP BY p.id`,
+      [id, user_id || null]
+    );
+    const poll = result.rows[0];
+
+    if (!poll) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+
+    if (!poll.is_public && (!user_id || poll.user_id !== Number(user_id))) {
+      return res.status(403).json({ error: "This poll is private" });
+    }
+
+    res.status(200).json({ poll });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.patch("/:id/publish", async (req, res) => {
   const { id } = req.params;
   const { user_id } = req.body;

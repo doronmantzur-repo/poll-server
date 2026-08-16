@@ -4,12 +4,17 @@ const pool = require("../db/pool");
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.post("/signup", async (req, res) => {
   const { user_name, password } = req.body;
 
   if (!user_name || !password) {
     return res.status(400).json({ error: "user_name and password are required" });
+  }
+
+  if (!EMAIL_PATTERN.test(user_name.trim())) {
+    return res.status(400).json({ error: "user_name must be a valid email address" });
   }
 
   try {
