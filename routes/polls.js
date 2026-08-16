@@ -49,6 +49,67 @@ router.get("/browse", async (req, res) => {
   }
 });
 
+router.get("/results", async (req, res) => {
+  try {
+    const pollsResult = await pool.query(
+      "SELECT * FROM polls WHERE is_public = true ORDER BY id DESC"
+    );
+    const polls = pollsResult.rows;
+
+    if (polls.length === 0) {
+      return res.status(200).json({ polls: [] });
+    }
+
+    const pollIds = polls.map((p) => p.id);
+
+    const countsResult = await pool.query(
+      `SELECT poll_id, answer, COUNT(*)::int AS count
+       FROM poll_answers
+       WHERE poll_id = ANY($1)
+       GROUP BY poll_id, answer`,
+      [pollIds]
+    );
+    const voterCountsResult = await pool.query(
+      `SELECT poll_id, COUNT(DISTINCT user_id)::int AS voter_count
+       FROM poll_answers
+       WHERE poll_id = ANY($1)
+       GROUP BY poll_id`,
+      [pollIds]
+    );
+
+    const countsByPoll = new Map();
+    for (const row of countsResult.rows) {
+      if (!countsByPoll.has(row.poll_id)) {
+        countsByPoll.set(row.poll_id, new Map());
+      }
+      countsByPoll.get(row.poll_id).set(row.answer, row.count);
+    }
+
+    const voterCountByPoll = new Map(voterCountsResult.rows.map((r) => [r.poll_id, r.voter_count]));
+
+    const pollsWithResults = polls.map((poll) => {
+      const answerCounts = countsByPoll.get(poll.id) || new Map();
+      const options = Array.from({ length: MAX_ANSWERS }, (_, i) => poll[`answer_${i + 1}`])
+        .filter(Boolean)
+        .map((answer) => ({ answer, count: answerCounts.get(answer) || 0 }));
+
+      return {
+        id: poll.id,
+        user_id: poll.user_id,
+        question: poll.question,
+        is_public: poll.is_public,
+        voter_count: voterCountByPoll.get(poll.id) || 0,
+        options,
+      };
+    });
+
+    res.status(200).json({ polls: pollsWithResults });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/", async (req, res) => {
   const { question, answers, is_public, user_id } = req.body;
 
