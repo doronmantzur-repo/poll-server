@@ -20,7 +20,7 @@ router.post("/signup", async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const result = await pool.query(
-      "INSERT INTO username (user_name, password) VALUES ($1, $2) RETURNING id, user_name",
+      "INSERT INTO users (user_name, password) VALUES ($1, $2) RETURNING id, user_name",
       [user_name, passwordHash]
     );
 
@@ -43,7 +43,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, user_name, password FROM username WHERE user_name = $1",
+      "SELECT id, user_name, password FROM users WHERE user_name = $1",
       [user_name]
     );
     const user = result.rows[0];
